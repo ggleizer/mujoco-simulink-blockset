@@ -21,7 +21,8 @@
 typedef enum {
     XML_PARAM_INDEX = 0,
     RENDERING_INDEX,
-    CONTROL_LENGTH_INDEX, 
+    CONTROL_LENGTH_INDEX,
+    CORRECTION_LENGTH_INDEX,
     SENSOR_LENGTH_INDEX, 
     RGB_LENGTH_INDEX, 
     DEPTH_LENGTH_INDEX,
@@ -36,6 +37,7 @@ typedef enum {
 // Input indices
 typedef enum {
     CONTROL_PORT_INDEX = 0,
+    CORRECTION_PORT_INDEX,
     INPORT_COUNT
 } inportIndex;
 
@@ -277,10 +279,16 @@ static void mdlInitializeSizes(SimStruct *S)
     if (!ssSetNumInputPorts(S, INPORT_COUNT)) return;
     ssSetInputPortWidth(S, CONTROL_PORT_INDEX, getIntParam(S, CONTROL_LENGTH_INDEX) + 1);
     // Last element is a dummy. In case we have a empty count, we will still show a dummy port in S function and handle the nuances in ML/SL layer
-
+    
     ssSetInputPortDirectFeedThrough(S, CONTROL_PORT_INDEX, 0); // input does not affect the output in the same time step
     ssSetInputPortComplexSignal(S, CONTROL_PORT_INDEX, COMPLEX_NO);
     ssSetInputPortDataType(S, CONTROL_PORT_INDEX, SS_DOUBLE);
+
+    // Same for observer corrections
+    ssSetInputPortWidth(S, CORRECTION_PORT_INDEX, getIntParam(S, CORRECTION_LENGTH_INDEX) + 1);
+    ssSetInputPortDirectFeedThrough(S, CORRECTION_PORT_INDEX, 0); // input does not affect the output in the same time step
+    ssSetInputPortComplexSignal(S, CORRECTION_PORT_INDEX, COMPLEX_NO);
+    ssSetInputPortDataType(S, CORRECTION_PORT_INDEX, SS_DOUBLE);
 
     // sensor output
     if (!ssSetNumOutputPorts(S, OUTPORT_COUNT)) return;
@@ -439,11 +447,20 @@ static void mdlUpdate(SimStruct *S, int_T tid)
     {
         uVec.push_back((double) *uPtrs[i]);
     }
+    vector<double> dxVec;
+    int_T nCorrections = ssGetInputPortWidth(S, CORRECTION_PORT_INDEX) - 1; // last index is a dummy
+    InputRealPtrsType dxPtrs = ssGetInputPortRealSignalPtrs(S, CORRECTION_PORT_INDEX);
+    for (int i = 0; i < nCorrections; i++) 
+    {
+        dxVec.push_back((double) *dxPtrs[i]);
+    }
 
     auto &miTemp = sd.mi[miIndex]; 
 
     // Step the simulation by one discrete time step. Outputs (sensors and camera) get reflected in the next step
     miTemp->step(uVec);
+    // Add observer corrections to the state
+    miTemp->correct(dxVec);
 }
 
 void renderingThreadFcn()
