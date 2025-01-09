@@ -198,6 +198,22 @@ void MujocoModelInstance::step(std::vector<double> u)
     dMutex.unlock();
 }
 
+void MujocoModelInstance::correct(std::vector<double> dx);
+{
+    // same memory location will be accessed during gui rendering
+    dMutex.lock();
+    int num_pos = dx.size()/2
+    for (unsigned index = 0; index < num_pos; index++)
+    {
+        d->qpos[index] += dx[index];
+    }
+    for (unsigned index = num_pos; index < dx.size(); index++)
+    {
+        d->qvel[index - num_pos] += dx[index];
+    }
+    dMutex.unlock();
+}
+
 std::vector<double> MujocoModelInstance::getSensor(unsigned index)
 {
     std::vector<double> sensorData;
