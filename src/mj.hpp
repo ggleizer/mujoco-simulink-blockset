@@ -111,6 +111,7 @@ public:
     std::atomic<bool> shouldCameraRenderNow = false;
 
     void step(std::vector<double> u);
+    void correct(std::vector<double> dx);
     std::vector<double> getSensor(unsigned index);
     size_t getCameraRGB(uint8_t *buffer);
     void getCameraDepth(float *buffer);
